@@ -12,9 +12,9 @@ import { PoliciesModule } from './policies/policies.module';
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: 'localhost',
-      port: 5432,
-      username: 'postgres',
-      password: 'qwerty123',
+      port: 5431,
+      username: 'admin',
+      password: 'secret',
       database: 'g_88_insurance_company',
       autoLoadEntities: true,
       synchronize: true,
