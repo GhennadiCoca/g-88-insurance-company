@@ -65,4 +65,18 @@ export class FilterService {
     // Возвращаем внешний родительский фильтр И как результат работы метода
     return filter;
   }
+
+  createScrollFilter(documentId: string): SearchFilterAnd {
+    const matcher: SearchFilterMatcher = new SearchFilterMatcher();
+    matcher.value = documentId;
+
+    const parameter: SearchFilterParameter = new SearchFilterParameter();
+    parameter.key = 'metadata.documentId';
+    parameter.match = matcher;
+
+    const filter: SearchFilterAnd = new SearchFilterAnd();
+    filter.must = [parameter];
+
+    return filter;
+  }
 }

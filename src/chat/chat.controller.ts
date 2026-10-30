@@ -15,7 +15,7 @@ export class ChatController {
   ): Promise<string> {
     return this.service.generateResponse(
       chatRequestDto.message,
-      request.user.role,
+      request.user,
     );
   }
 }
