@@ -9,7 +9,7 @@ import { AuthGuard } from './auth/guards/auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { ConfirmationCodesModule } from './confirmation-codes/confirmation-codes.module';
 import { EmailModule } from './email/email.module';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AiModule } from './ai/ai.module';
 import { IngestionModule } from './ingestion/ingestion.module';
 import { VectorStorageModule } from './vector-storage/vector-storage.module';
@@ -27,15 +27,30 @@ import { ChatModule } from './chat/chat.module';
     IngestionModule,
     VectorStorageModule,
     ChatModule,
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: 'localhost',
-      port: 5431,
-      username: 'admin',
-      password: 'secret',
-      database: 'g_88_insurance_company',
-      autoLoadEntities: true,
-      synchronize: true,
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => {
+        const sslEnabled =
+          configService.getOrThrow<string>('DB_SSL') === 'true';
+
+        return {
+          type: 'postgres',
+          host: configService.getOrThrow<string>('DB_HOST'),
+          port: Number(configService.getOrThrow<string>('DB_PORT')),
+          username: configService.getOrThrow<string>('DB_USERNAME'),
+          password: configService.getOrThrow<string>('DB_PASSWORD'),
+          database: configService.getOrThrow<string>('DB_DATABASE'),
+          autoLoadEntities: true,
+          synchronize: true,
+
+          ...(sslEnabled && {
+            ssl: {
+              rejectUnauthorized: false,
+            },
+          }),
+        };
+      },
+      inject: [ConfigService],
     }),
     ConfigModule.forRoot({
       isGlobal: true,

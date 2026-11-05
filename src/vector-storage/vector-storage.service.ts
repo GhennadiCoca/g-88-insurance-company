@@ -7,6 +7,8 @@ import { FilterService } from './filter.service';
 import { Role } from '../users/enums/role.enum';
 import { SearchFilterAnd } from './filters/search-filter-and';
 import { DocumentVersionConflictException } from '../exceptions/types/document-version-conflict.exception';
+import { SimilaritySearchResult } from './types/similarity-search-result';
+import { QdrantPayload } from './types/qdrant-payload';
 
 @Injectable()
 export class VectorStorageService {
@@ -32,22 +34,39 @@ export class VectorStorageService {
     request: string,
     insuranceType: string,
     userRole: Role,
-  ): Promise<string[]> {
+  ): Promise<SimilaritySearchResult[]> {
     const onlyPublicDocs: boolean = userRole === Role.CUSTOMER;
 
-    const filter: SearchFilterAnd =
-      this.filterService.createSearchFilter(insuranceType, onlyPublicDocs);
-
-    const result: DocumentInterface[] = await this.vectorStore.similaritySearch(
-      request,
-      this.topKValue,
-      filter,
+    const filter: SearchFilterAnd = this.filterService.createSearchFilter(
+      insuranceType,
+      onlyPublicDocs,
     );
-    return this.mapDocumentsToTexts(result);
+
+    const result: [DocumentInterface, number][] =
+      await this.vectorStore.similaritySearchWithScore(
+        request,
+        this.topKValue,
+        filter,
+      );
+    return this.mapDocumentsToSearchResults(result);
   }
 
-  private mapDocumentsToTexts(documents: DocumentInterface[]): string[] {
-    return documents.map((d: DocumentInterface): string => d.pageContent);
+  private mapDocumentsToSearchResults(
+    documents: [DocumentInterface, number][],
+  ): SimilaritySearchResult[] {
+    return documents.map(
+      ([document, score]): SimilaritySearchResult => {
+        const payload: QdrantPayload = new QdrantPayload();
+        payload.content = document.pageContent;
+        payload.metadata = document.metadata;
+
+        const result: SimilaritySearchResult = new SimilaritySearchResult();
+        result.payload = payload;
+        result.score = score;
+
+        return result;
+      }
+    );
   }
 
   private async deleteOldDocumentVersion(
@@ -68,7 +87,7 @@ export class VectorStorageService {
       {
         filter,
         limit: 1,
-      }
+      },
     );
 
     if (scrollResult.points.length === 0) {
@@ -85,11 +104,8 @@ export class VectorStorageService {
       throw new DocumentVersionConflictException(oldVersion, documentVersion);
     }
 
-    await this.vectorStore.client.delete(
-      this.vectorStore.collectionName,
-      {
-        filter,
-      },
-    );
+    await this.vectorStore.client.delete(this.vectorStore.collectionName, {
+      filter,
+    });
   }
 }

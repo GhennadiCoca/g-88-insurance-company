@@ -4,6 +4,8 @@ import { AiService } from '../ai/ai.service';
 import { PromptService } from './prompt.service';
 import { ChatMessage } from './types/chat-message';
 import { User } from '../users/user.entity';
+import { SimilaritySearchResult } from '../vector-storage/types/similarity-search-result';
+import { ContextService } from './context.service';
 
 @Injectable()
 export class ChatService {
@@ -16,6 +18,7 @@ export class ChatService {
     private readonly vectorStorageService: VectorStorageService,
     private readonly aiService: AiService,
     private readonly promptService: PromptService,
+    private readonly contextService: ContextService,
   ) {}
 
   async generateResponse(request: string, user: User): Promise<string> {
@@ -41,17 +44,20 @@ export class ChatService {
     console.log('\nInsurance type:\n');
     console.log(insuranceType + '\n');
 
-    const relevantChunks: string[] =
+    const relevantChunks: SimilaritySearchResult[] =
       await this.vectorStorageService.getRelevantChunks(
         request,
         insuranceType,
         user.role,
       );
 
+    const context: string[] =
+      this.contextService.generateContext(relevantChunks);
+
     prompt = this.promptService
       .buildPromptForChat()
       .withUserRole(user.role)
-      .withContext(relevantChunks)
+      .withContext(context)
       .withChatHistory(chatHistory)
       .withQuestion(request)
       .build();
